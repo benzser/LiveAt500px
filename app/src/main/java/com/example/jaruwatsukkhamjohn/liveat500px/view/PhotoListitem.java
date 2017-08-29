@@ -5,7 +5,11 @@ import android.content.Context;
 import android.os.Bundle;
 import android.os.Parcelable;
 import android.util.AttributeSet;
+import android.widget.ImageView;
+import android.widget.TextView;
 
+import com.bumptech.glide.Glide;
+import com.bumptech.glide.load.engine.DiskCacheStrategy;
 import com.example.jaruwatsukkhamjohn.liveat500px.R;
 import com.inthecheesefactory.thecheeselibrary.view.BaseCustomViewGroup;
 import com.inthecheesefactory.thecheeselibrary.view.state.BundleSavedState;
@@ -14,6 +18,10 @@ import com.inthecheesefactory.thecheeselibrary.view.state.BundleSavedState;
  * Created by nuuneoi on 11/16/2014.
  */
 public class PhotoListitem extends BaseCustomViewGroup {
+
+    TextView tvName;
+    TextView tvDescription;
+    ImageView imageView;
 
     public PhotoListitem(Context context) {
         super(context);
@@ -49,6 +57,9 @@ public class PhotoListitem extends BaseCustomViewGroup {
 
     private void initInstances() {
         // findViewById here
+        imageView = (ImageView) findViewById(R.id.ivImg);
+        tvName = (TextView) findViewById(R.id.tvName);
+        tvDescription = (TextView) findViewById(R.id.tvDescription);
     }
 
     private void initWithAttrs(AttributeSet attrs, int defStyleAttr, int defStyleRes) {
@@ -100,4 +111,21 @@ public class PhotoListitem extends BaseCustomViewGroup {
         //Self
         setMeasuredDimension(width, height);
     }
+
+    public void setNameText(String text) {
+        tvName.setText(text);
+    }
+
+    public void setDescriptionText(String text) {
+        tvDescription.setText(text);
+    }
+
+    public void setImageUrl(String url) {
+        //TODO: Load Image
+        Glide.with(getContext())
+                .load(url)
+                .diskCacheStrategy(DiskCacheStrategy.ALL)
+                .into(imageView);
+    }
+
 }

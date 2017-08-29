@@ -6,8 +6,10 @@
     android:orientation="vertical"
     tools:layout="@layout/fragment_main">
 
-    <com.example.jaruwatsukkhamjohn.liveat500px.view.PhotoListitem
+    <ListView
+        android:id="@+id/listView"
         android:layout_width="match_parent"
-        android:layout_height="match_parent" />
+        android:layout_height="match_parent">
 
+    </ListView>
 </LinearLayout>

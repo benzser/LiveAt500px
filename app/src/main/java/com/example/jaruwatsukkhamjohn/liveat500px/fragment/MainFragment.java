@@ -1,18 +1,36 @@
 package com.example.jaruwatsukkhamjohn.liveat500px.fragment;
 
+import android.app.Application;
 import android.os.Bundle;
 import android.support.v4.app.Fragment;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.ListView;
+import android.widget.Toast;
 
 import com.example.jaruwatsukkhamjohn.liveat500px.R;
+import com.example.jaruwatsukkhamjohn.liveat500px.adapter.PhotoListAdapter;
+import com.example.jaruwatsukkhamjohn.liveat500px.dao.PhotoitemCollectionDao;
+import com.example.jaruwatsukkhamjohn.liveat500px.manager.HttpManager;
+import com.example.jaruwatsukkhamjohn.liveat500px.manager.PhotoListManager;
+import com.inthecheesefactory.thecheeselibrary.manager.Contextor;
+
+import java.io.IOException;
+import java.util.List;
+
+import retrofit2.Call;
+import retrofit2.Callback;
+import retrofit2.Response;
 
 
 /**
  * Created by nuuneoi on 11/16/2014.
  */
 public class MainFragment extends Fragment {
+
+    ListView listView;
+    PhotoListAdapter listAdapter;
 
     public MainFragment() {
         super();
@@ -35,6 +53,41 @@ public class MainFragment extends Fragment {
 
     private void initInstances(View rootView) {
         // Init 'View' instance(s) with rootView.findViewById here
+        listView = (ListView) rootView.findViewById(R.id.listView);
+        listAdapter = new PhotoListAdapter();
+        listView.setAdapter(listAdapter);
+
+        Call<PhotoitemCollectionDao> call = HttpManager.getInstance().getService().loadPhotoList();
+        //Synchronous NetworkOnMainThreadException     connect maintheard
+        //call.execute();
+        //Asynchronous
+        call.enqueue(new Callback<PhotoitemCollectionDao>() {
+            @Override
+            public void onResponse(Call<PhotoitemCollectionDao> call,
+                                   Response<PhotoitemCollectionDao> response) {
+                if (response.isSuccessful()) {
+                    PhotoitemCollectionDao dao = response.body();
+                    PhotoListManager.getInstance().setDao(dao);
+                    listAdapter.notifyDataSetChanged();
+                    Toast.makeText(Contextor.getInstance().getContext(), dao.getData().get(0).getCaption(), Toast.LENGTH_SHORT).show();
+                } else {
+                    // Handle
+                    try {
+                        Toast.makeText(Contextor.getInstance().getContext(), response.errorBody().string(), Toast.LENGTH_SHORT).show();
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                    }
+                }
+            }
+
+            @Override
+            public void onFailure(Call<PhotoitemCollectionDao> call,
+                                  Throwable t) {
+                // Handle
+                Toast.makeText(Contextor.getInstance().getContext(), t.toString(), Toast.LENGTH_SHORT).show();
+            }
+        });
+
     }
 
     @Override
