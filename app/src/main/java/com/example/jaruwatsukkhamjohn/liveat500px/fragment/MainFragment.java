@@ -1,23 +1,28 @@
 package com.example.jaruwatsukkhamjohn.liveat500px.fragment;
 
-import android.app.Application;
 import android.os.Bundle;
+import android.support.annotation.Nullable;
 import android.support.v4.app.Fragment;
+import android.support.v4.widget.SwipeRefreshLayout;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.animation.Animation;
+import android.view.animation.AnimationUtils;
+import android.widget.AbsListView;
+import android.widget.Button;
 import android.widget.ListView;
 import android.widget.Toast;
 
 import com.example.jaruwatsukkhamjohn.liveat500px.R;
 import com.example.jaruwatsukkhamjohn.liveat500px.adapter.PhotoListAdapter;
 import com.example.jaruwatsukkhamjohn.liveat500px.dao.PhotoitemCollectionDao;
+import com.example.jaruwatsukkhamjohn.liveat500px.datatype.Mutableinteger;
 import com.example.jaruwatsukkhamjohn.liveat500px.manager.HttpManager;
 import com.example.jaruwatsukkhamjohn.liveat500px.manager.PhotoListManager;
 import com.inthecheesefactory.thecheeselibrary.manager.Contextor;
 
 import java.io.IOException;
-import java.util.List;
 
 import retrofit2.Call;
 import retrofit2.Callback;
@@ -29,9 +34,20 @@ import retrofit2.Response;
  */
 public class MainFragment extends Fragment {
 
+
+    // Variables
     ListView listView;
     PhotoListAdapter listAdapter;
+    SwipeRefreshLayout swipeRefreshLayout;
+    PhotoListManager photoListManager;
+    Button btnNewPhotos;
+    Mutableinteger lastPositionInteger;
+    boolean isLoadingMore = false;
 
+
+    /**************
+     *  Functions
+     **************/
     public MainFragment() {
         super();
     }
@@ -44,50 +60,82 @@ public class MainFragment extends Fragment {
     }
 
     @Override
+    public void onCreate(@Nullable Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        init(savedInstanceState);
+        if (savedInstanceState != null) {
+            onRestoreInstanceState(savedInstanceState); //Restore
+        }
+    }
+
+
+    @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container,
                              Bundle savedInstanceState) {
         View rootView = inflater.inflate(R.layout.fragment_main, container, false);
-        initInstances(rootView);
+        initInstances(rootView, savedInstanceState);
         return rootView;
     }
 
-    private void initInstances(View rootView) {
-        // Init 'View' instance(s) with rootView.findViewById here
-        listView = (ListView) rootView.findViewById(R.id.listView);
-        listAdapter = new PhotoListAdapter();
-        listView.setAdapter(listAdapter);
+    private void init(Bundle savedInstanceState) {
+        //Initialize Fragment level's variables
+        photoListManager = new PhotoListManager();
+        lastPositionInteger = new Mutableinteger(-1);
 
+    }
+
+    private void initInstances(View rootView, Bundle savedInstanceState) {
+        // Init 'View' instance(s) with rootView.findViewById here
+
+        btnNewPhotos = (Button) rootView.findViewById(R.id.btnNewPhoto);
+        btnNewPhotos.setOnClickListener(buttonClickListener);
+        listView = (ListView) rootView.findViewById(R.id.listView);
+        listAdapter = new PhotoListAdapter(lastPositionInteger);
+        listAdapter.setDao(photoListManager.getDao());
+        listView.setAdapter(listAdapter);
+        swipeRefreshLayout = (SwipeRefreshLayout) rootView.findViewById(R.id.swipeRefreshLayout);
+        swipeRefreshLayout.setOnRefreshListener(pullToRefreshListener);
+        listView.setOnScrollListener(listViewScrollListener);
+        if (savedInstanceState == null)
+            refreshData();
+
+    }
+
+    private void refreshData() {
+        if (photoListManager.getCount() == 0)
+            reloadData();
+        else
+            reloadDataNewer();
+    }
+
+    private void loadMoreData() {
+        if (isLoadingMore) {
+            return;
+        }
+        isLoadingMore = true;
+        int minId = photoListManager.getMinimumId();
+        Call<PhotoitemCollectionDao> call = HttpManager.getInstance()
+                .getService()
+                .loadPhotoListBeforeId(minId);
+        call.enqueue(new PhotoListLoadCallback(PhotoListLoadCallback.MODE_LOAD_MORE));
+    }
+
+    private void reloadDataNewer() {
+        int maxId = photoListManager.getMaximumId();
+        Call<PhotoitemCollectionDao> call = HttpManager.getInstance()
+                .getService()
+                .loadPhotoListAfterId(maxId);
+        call.enqueue(new PhotoListLoadCallback(PhotoListLoadCallback.MODE_RELOAD_NEWER));
+
+    }
+
+
+    private void reloadData() {
         Call<PhotoitemCollectionDao> call = HttpManager.getInstance().getService().loadPhotoList();
         //Synchronous NetworkOnMainThreadException     connect maintheard
         //call.execute();
         //Asynchronous
-        call.enqueue(new Callback<PhotoitemCollectionDao>() {
-            @Override
-            public void onResponse(Call<PhotoitemCollectionDao> call,
-                                   Response<PhotoitemCollectionDao> response) {
-                if (response.isSuccessful()) {
-                    PhotoitemCollectionDao dao = response.body();
-                    PhotoListManager.getInstance().setDao(dao);
-                    listAdapter.notifyDataSetChanged();
-                    Toast.makeText(Contextor.getInstance().getContext(), dao.getData().get(0).getCaption(), Toast.LENGTH_SHORT).show();
-                } else {
-                    // Handle
-                    try {
-                        Toast.makeText(Contextor.getInstance().getContext(), response.errorBody().string(), Toast.LENGTH_SHORT).show();
-                    } catch (IOException e) {
-                        e.printStackTrace();
-                    }
-                }
-            }
-
-            @Override
-            public void onFailure(Call<PhotoitemCollectionDao> call,
-                                  Throwable t) {
-                // Handle
-                Toast.makeText(Contextor.getInstance().getContext(), t.toString(), Toast.LENGTH_SHORT).show();
-            }
-        });
-
+        call.enqueue(new PhotoListLoadCallback(PhotoListLoadCallback.MODE_RELOAD));
     }
 
     @Override
@@ -107,6 +155,20 @@ public class MainFragment extends Fragment {
     public void onSaveInstanceState(Bundle outState) {
         super.onSaveInstanceState(outState);
         // Save Instance State here
+        //TODO SAVE PhotoListManager to outState
+        outState.putBundle("photoListManager",
+                photoListManager.onSaveInstanceState());
+        outState.putBundle("lastPositionInteger",
+                lastPositionInteger.onSavedInstanceState());
+    }
+
+    private void onRestoreInstanceState(Bundle savedInstanceState) {
+        //Restore instance state here
+        photoListManager.onRestoreInstanceState(
+                savedInstanceState.getBundle("photoListManager"));
+        lastPositionInteger.onRestoreInstanceState(
+                savedInstanceState.getBundle("lastPositionInteger")
+        );
     }
 
     /*
@@ -115,8 +177,160 @@ public class MainFragment extends Fragment {
     @Override
     public void onActivityCreated(Bundle savedInstanceState) {
         super.onActivityCreated(savedInstanceState);
-        if (savedInstanceState != null) {
-            // Restore Instance State here
+
+    }
+
+    private void showButtonNewPhotos() {
+        btnNewPhotos.setVisibility(View.VISIBLE);
+        Animation anim = AnimationUtils.loadAnimation(
+                Contextor.getInstance().getContext(),
+                R.anim.zoom_fade_in
+        );
+        btnNewPhotos.startAnimation(anim);
+    }
+
+    private void hideButtonNewPhotos() {
+        btnNewPhotos.setVisibility(View.GONE);
+        Animation anim = AnimationUtils.loadAnimation(
+                Contextor.getInstance().getContext(),
+                R.anim.zoom_fade_out
+        );
+        btnNewPhotos.startAnimation(anim);
+
+    }
+
+    private void showToast(String text) {
+        Toast.makeText(Contextor.getInstance().getContext(),
+                text,
+                Toast.LENGTH_SHORT)
+                .show();
+    }
+
+    /**************************
+     *  Listener Zone
+     **************************/
+
+    View.OnClickListener buttonClickListener = new View.OnClickListener() {
+        @Override
+        public void onClick(View v) {
+            if (v == btnNewPhotos) {
+                listView.smoothScrollToPosition(0);
+                hideButtonNewPhotos();
+            }
+        }
+    };
+
+    SwipeRefreshLayout.OnRefreshListener pullToRefreshListener = new SwipeRefreshLayout.OnRefreshListener() {
+        @Override
+        public void onRefresh() {
+            refreshData();
+        }
+
+    };
+
+    AbsListView.OnScrollListener listViewScrollListener = new AbsListView.OnScrollListener() {
+        @Override
+        public void onScrollStateChanged(AbsListView view, int scrollState) {
+
+        }
+
+        @Override
+        public void onScroll(AbsListView view,
+                             int firstVisibleItem,
+                             int visibleItemCount,
+                             int totalItemCount) {
+            if (view == listView) {
+                swipeRefreshLayout.setEnabled(firstVisibleItem == 0);
+                if (firstVisibleItem + visibleItemCount >= totalItemCount) {
+                    if (photoListManager.getCount() > 0) {
+                        //Load more
+                        loadMoreData();
+                    }
+
+                }
+            }
+        }
+    };
+
+
+    /**************************
+     *  Inner Class
+     **************************/
+
+    class PhotoListLoadCallback implements Callback<PhotoitemCollectionDao> {
+
+        public static final int MODE_RELOAD = 1;
+        public static final int MODE_RELOAD_NEWER = 2;
+        public static final int MODE_LOAD_MORE = 3;
+
+        int mode;
+
+        public PhotoListLoadCallback(int mode) {
+            this.mode = mode;
+        }
+
+        @Override
+        public void onResponse(Call<PhotoitemCollectionDao> call, Response<PhotoitemCollectionDao> response) {
+            swipeRefreshLayout.setRefreshing(false);
+            if (response.isSuccessful()) {
+                PhotoitemCollectionDao dao = response.body();
+
+                int firstVisiblePosition = listView.getFirstVisiblePosition();
+                View c = listView.getChildAt(0);
+                int top = c == null ? 0 : c.getTop();
+
+                if (mode == MODE_RELOAD_NEWER) {
+                    photoListManager.insertDaoAtTopPosition(dao);
+                } else if (mode == MODE_LOAD_MORE) {
+                    if (isLoadingMore) {
+                        photoListManager.appendDaoAtBottomPosition(dao);
+                    }
+                } else {
+                    photoListManager.setDao(dao);
+                }
+                clearLoadingMoreFlagIfCapable(mode);
+                listAdapter.setDao(photoListManager.getDao());
+                listAdapter.notifyDataSetChanged();
+
+                if (mode == MODE_RELOAD_NEWER) {
+                    //Maintance scroll position
+                    int additionalSize =
+                            (dao != null && dao.getData() != null) ? dao.getData().size() : 0;
+                    listAdapter.increaseLastPosition(additionalSize);
+                    listView.setSelectionFromTop(firstVisiblePosition + additionalSize, top);
+                    if (additionalSize > 0)
+                        showButtonNewPhotos();
+                } else {
+
+                }
+
+
+                showToast("Load Completed");
+            } else {
+                // Handle
+                clearLoadingMoreFlagIfCapable(mode);
+                try {
+                    showToast(response.errorBody().string());
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }
+        }
+
+        @Override
+        public void onFailure(Call<PhotoitemCollectionDao> call, Throwable t) {
+            // Handle
+            // TODO: Clear Loading More Flag
+            clearLoadingMoreFlagIfCapable(mode);
+            swipeRefreshLayout.setRefreshing(false);
+            showToast(t.toString());
+        }
+
+
+        private void clearLoadingMoreFlagIfCapable(int mode) {
+            if (mode == MODE_LOAD_MORE)
+                isLoadingMore = false;
         }
     }
+
 }

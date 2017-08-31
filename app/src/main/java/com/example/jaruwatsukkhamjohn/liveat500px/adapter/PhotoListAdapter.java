@@ -2,10 +2,16 @@ package com.example.jaruwatsukkhamjohn.liveat500px.adapter;
 
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.animation.Animation;
+import android.view.animation.AnimationUtils;
 import android.widget.BaseAdapter;
+import android.widget.ProgressBar;
 import android.widget.TextView;
 
+import com.example.jaruwatsukkhamjohn.liveat500px.R;
+import com.example.jaruwatsukkhamjohn.liveat500px.dao.PhotoitemCollectionDao;
 import com.example.jaruwatsukkhamjohn.liveat500px.dao.PhotoitemDao;
+import com.example.jaruwatsukkhamjohn.liveat500px.datatype.Mutableinteger;
 import com.example.jaruwatsukkhamjohn.liveat500px.manager.PhotoListManager;
 import com.example.jaruwatsukkhamjohn.liveat500px.view.PhotoListitem;
 
@@ -14,18 +20,30 @@ import com.example.jaruwatsukkhamjohn.liveat500px.view.PhotoListitem;
  */
 
 public class PhotoListAdapter extends BaseAdapter {
+
+    PhotoitemCollectionDao dao;
+    Mutableinteger lastPositionInteger;
+
+    public PhotoListAdapter(Mutableinteger lastPositionInteger) {
+        this.lastPositionInteger = lastPositionInteger;
+    }
+
+    public void setDao(PhotoitemCollectionDao dao) {
+        this.dao = dao;
+    }
+
     @Override
     public int getCount() {
-        if (PhotoListManager.getInstance().getDao() == null)
-            return 0;
-        if (PhotoListManager.getInstance().getDao().getData() == null)
-            return 0;
-        return PhotoListManager.getInstance().getDao().getData().size();
+        if (dao == null)
+            return 1;
+        if (dao.getData() == null)
+            return 1;
+        return dao.getData().size() + 1;
     }
 
     @Override
     public Object getItem(int position) {
-        return PhotoListManager.getInstance().getDao().getData().get(position);
+        return dao.getData().get(position);
     }
 
     @Override
@@ -33,8 +51,8 @@ public class PhotoListAdapter extends BaseAdapter {
 
         return 0;
     }
-/*
-    Divine View on 2 Method
+
+    //Divine View on 2 Method
 
     @Override
     public int getViewTypeCount() {
@@ -43,9 +61,9 @@ public class PhotoListAdapter extends BaseAdapter {
 
     @Override
     public int getItemViewType(int position) {
-        return position % 2 == 0 ? 0 : 1;
+        return position == getCount() - 1 ? 1 : 0;
     }
-*/
+
 
     @Override
     public View getView(int position, View convertView, ViewGroup parent) {
@@ -67,6 +85,14 @@ public class PhotoListAdapter extends BaseAdapter {
             return item;
         }
     }*/
+        if (position == getCount() - 1) {
+            ProgressBar item;
+            if (convertView != null)
+                item = (ProgressBar) convertView;
+            else
+                item = new ProgressBar(parent.getContext());
+            return item;
+        }
         PhotoListitem item;
         if (convertView != null)
             item = (PhotoListitem) convertView;
@@ -78,6 +104,17 @@ public class PhotoListAdapter extends BaseAdapter {
         item.setNameText(dao.getCaption());
         item.setDescriptionText(dao.getUsername() + "\n" + dao.getCamera());
         item.setImageUrl(dao.getImageUrl());
+
+        if (position > lastPositionInteger.getValue()) {
+            Animation anim = AnimationUtils.loadAnimation(parent.getContext(), R.anim.up_from_bottom);
+            item.startAnimation(anim);
+            lastPositionInteger.setValue(position);
+        }
         return item;
+    }
+
+
+    public void increaseLastPosition(int amount) {
+        lastPositionInteger.setValue(lastPositionInteger.getValue() + amount);
     }
 }

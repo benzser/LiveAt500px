@@ -1,5 +1,8 @@
 package com.example.jaruwatsukkhamjohn.liveat500px.dao;
 
+import android.os.Parcel;
+import android.os.Parcelable;
+
 import com.google.gson.annotations.SerializedName;
 
 import java.util.ArrayList;
@@ -10,8 +13,9 @@ import java.util.List;
  * Created by Jaruwat Sukkhamjohn on 29/8/2560.
  */
 
-public class PhotoitemDao {
+public class PhotoitemDao implements Parcelable{
 
+    @SerializedName("id")                private int id;
     @SerializedName("link")              private String link;
     @SerializedName("image_url")         private String imageUrl;
     @SerializedName("caption")           private String caption;
@@ -26,6 +30,69 @@ public class PhotoitemDao {
     @SerializedName("iso")               private String iso;
     @SerializedName("shutter_speed")     private String shutterSpeed;
     @SerializedName("aperture")          private String aperture;
+
+    public PhotoitemDao(){
+
+    }
+
+    protected PhotoitemDao(Parcel in) {
+        id = in.readInt();
+        link = in.readString();
+        imageUrl = in.readString();
+        caption = in.readString();
+        userId = in.readInt();
+        username = in.readString();
+        profilePicture = in.readString();
+        tags = in.createStringArrayList();
+        camera = in.readString();
+        lens = in.readString();
+        focalLenght = in.readString();
+        iso = in.readString();
+        shutterSpeed = in.readString();
+        aperture = in.readString();
+    }
+
+    @Override
+    public void writeToParcel(Parcel dest, int flags) {
+        dest.writeInt(id);
+        dest.writeString(link);
+        dest.writeString(imageUrl);
+        dest.writeString(caption);
+        dest.writeInt(userId);
+        dest.writeString(username);
+        dest.writeString(profilePicture);
+        dest.writeStringList(tags);
+        dest.writeString(camera);
+        dest.writeString(lens);
+        dest.writeString(focalLenght);
+        dest.writeString(iso);
+        dest.writeString(shutterSpeed);
+        dest.writeString(aperture);
+    }
+
+    @Override
+    public int describeContents() {
+        return 0;
+    }
+    public static final Creator<PhotoitemDao> CREATOR = new Creator<PhotoitemDao>() {
+        @Override
+        public PhotoitemDao createFromParcel(Parcel in) {
+            return new PhotoitemDao(in);
+        }
+
+        @Override
+        public PhotoitemDao[] newArray(int size) {
+            return new PhotoitemDao[size];
+        }
+    };
+
+    public int getId() {
+        return id;
+    }
+
+    public void setId(int id) {
+        this.id = id;
+    }
 
     public String getLink() {
         return link;
@@ -138,4 +205,6 @@ public class PhotoitemDao {
     public void setAperture(String aperture) {
         this.aperture = aperture;
     }
+
+
 }
